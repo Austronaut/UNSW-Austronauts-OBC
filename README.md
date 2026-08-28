@@ -59,7 +59,7 @@ git commit -m "feat: add UART initialisation"
 git push -u origin feat/uart-driver
 ```
 ### Branch Conventions
-For OBC development work, branches should use the format:
+**For OBC development work**, branches should use the format:
 `<layer>/<system>/<short-description>`
 For Example:
 ```text
@@ -77,7 +77,8 @@ As a reminder, our 5 architectural layers are:
 - `Services` - Shared libraries for the system
 - `Apps` - High level system functionality
 
-For practice, experimental, or exploratory work, branches should use the format:
+
+**For practice or exploratory work,** branches should use the format:
 `sandbox/<name>/<short-description>`
 For Example:
 ```text
