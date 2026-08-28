@@ -93,4 +93,4 @@ Pull Requests should:
 If a change affects an interface used by another subsystem, document the interface change clearly in the Pull Request.
 
 ## Useful Resourcees
- - [MSP430 Code Examples] (https://github.com/ticepd/msp430-examples/tree/master)
+ - [MSP430 Code Examples](https://github.com/ticepd/msp430-examples/tree/master)
