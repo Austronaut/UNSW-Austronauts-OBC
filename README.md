@@ -40,23 +40,53 @@ The `main` branch represents the shared working version of the OBC software.
 
 For all changes:
 
-1. Fork this repository.
-2. Create a branch in your fork for the change.
+1. Pull the latest version of `main`.
+2. Create a new branch for your change.
 3. Make and commit your changes.
-4. Push the branch to your fork.
+4. Push the branch to remote github
 5. Open a Pull Request into `main`.
 6. Merge only after review.
 
 Example:
 
 ```bash
+git checkout main
+git pull
 git checkout -b feat/uart-driver
+
 git add .
 git commit -m "feat: add UART initialisation"
 git push -u origin feat/uart-driver
 ```
+### Branch Conventions
+For OBC development work, branches should use the format:
+`<layer>/<system>/<short-description>`
+For Example:
+```text
+HAL/UART/initial-uart-drivers
+HAL/CAN/add-can-transmit
+Services/Comms/packet-decoder
+Services/Storage/fram-interface
+RTOS/Tasks/telemetry-task
+App/EPS/housekeeping-telemetry
+```
+The first component identifies the architectural layer, the second identifies the relevant subsystem or component, and the final component briefly describes the work being undertaken.
+As a reminder, our 5 architectural layers are:
+- `HAL` - Hardware abstraction Layer
+- `RTOS` - FreeRTOS libraries and components
+- `Services` - Shared libraries for the system
+- `Apps` - High level system functionality
 
-## Commit Messages
+For practice, experimental, or exploratory work, branches should use the format:
+`sandbox/<name>/<short-description>`
+For Example:
+```text
+sandbox/gus/uart-loopback
+sandbox/vedang/freertos-tasks
+sandbox/foxy/gpio-testing
+```
+
+### Commit Conventions
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/#summary).
 
@@ -81,7 +111,7 @@ test: add packet codec tests
 
 Keep commits focused on a single logical change where practical.
 
-## Pull Requests
+### Pull Requests
 
 Pull Requests should:
 
