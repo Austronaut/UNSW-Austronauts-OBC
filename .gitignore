@@ -41,3 +41,6 @@ Release/
 .launches/
 .metadata/
 RemoteSystemsTempFiles/
+.theia/
+platform/.settings/
+
