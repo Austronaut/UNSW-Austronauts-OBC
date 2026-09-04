@@ -62,7 +62,7 @@
 //   Built with IAR Embedded Workbench V6.30 & Code Composer Studio V6.1
 //******************************************************************************
 #include <msp430.h>
-#include "toggleLed/leds.h"
+#include "hal/button.h"
 
 int main(void)
 {
@@ -75,10 +75,13 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;                   // Disable the GPIO power-on default high-impedance mode
                                             // to activate previously configured port settings
 
-    leds_init();
+    button_init();
     while(1)
     {
-        leds_toggle();
-        __delay_cycles(1000000);
+        if (button_is_pressed()) {          // if SW is pressed
+            P1OUT |= BIT0;                  // Red LED -> ON
+        } else {
+            P1OUT &= ~BIT0;                  // else Red LED -> OFF
+        }
     }
 }
