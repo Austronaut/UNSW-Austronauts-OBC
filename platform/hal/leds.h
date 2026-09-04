@@ -8,4 +8,4 @@ void leds_init(void);
 // Flips both LEDs' state. Call to alternate red/green. 
 void leds_toggle(void);
 
-#endif
+#endif // LEDS_H
