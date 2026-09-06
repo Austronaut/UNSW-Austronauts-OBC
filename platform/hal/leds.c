@@ -2,7 +2,7 @@
 #include "leds.h"
 
 void leds_init() {
-    P1DIR |= BIT0 + BIT1;			//P1.0 (Red) & P1.6 (Grn) -> Output
+    P1DIR |= BIT0 + BIT1;			//P1.0 (Red) & P1.1 (Grn) -> Output
 
     P1OUT &= ~BIT0;					//Red LED -> OFF
     P1OUT &= ~BIT1;					//Green LED -> OFF
