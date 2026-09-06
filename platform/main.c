@@ -63,6 +63,7 @@
 //******************************************************************************
 #include <msp430.h>
 #include "hal/button.h"
+#include "hal/leds.h"
 
 int main(void)
 {
@@ -76,12 +77,12 @@ int main(void)
                                             // to activate previously configured port settings
 
     button_init();
+    leds_init();
     while(1)
     {
         if (button_is_pressed()) {          // if SW is pressed
-            P1OUT |= BIT0;                  // Red LED -> ON
-        } else {
-            P1OUT &= ~BIT0;                  // else Red LED -> OFF
+            leds_toggle();
+            while (button_is_pressed());
         }
     }
 }
