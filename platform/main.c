@@ -65,6 +65,8 @@
 #include "hal/button.h"
 #include "hal/leds.h"
 
+void on_button_press(void);
+
 int main(void)
 {
     WDTCTL = WDTPW | WDTHOLD;               // Stop WDT
@@ -76,13 +78,15 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;                   // Disable the GPIO power-on default high-impedance mode
                                             // to activate previously configured port settings
 
-    button_init();
+    button_interrupt_init(on_button_press);
     leds_init();
-    while(1)
-    {
-        if (button_is_pressed()) {          // if SW is pressed
-            leds_toggle();
-            while (button_is_pressed());
-        }
-    }
+
+    __bis_SR_register(GIE);
+
+    while (1) { }
+}
+
+void on_button_press(void)
+{
+    leds_toggle();
 }
