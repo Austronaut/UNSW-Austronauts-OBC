@@ -64,8 +64,8 @@
 #include <msp430.h>
 #include "hal/button.h"
 #include "hal/leds.h"
-
-void on_button_press(void);
+#include "hal/clock.h"
+#include "hal/uart.h"
 
 int main(void)
 {
@@ -78,15 +78,11 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;                   // Disable the GPIO power-on default high-impedance mode
                                             // to activate previously configured port settings
 
-    button_interrupt_init(on_button_press);
-    leds_init();
+    clock_init_8mhz();
+    uart_init();
 
-    __bis_SR_register(GIE);
-
-    while (1) { }
-}
-
-void on_button_press(void)
-{
-    leds_toggle();
+    while (1) {
+        uart_send_string("Hello World!\r\n");
+        __delay_cycles(1000000);
+    }
 }
