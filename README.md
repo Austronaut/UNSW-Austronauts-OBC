@@ -125,3 +125,4 @@ If a change affects an interface used by another subsystem, document the interfa
 
 ## Useful Resourcees
  - [MSP430 Code Examples](https://github.com/ticepd/msp430-examples/tree/master)
+ - [Initial GPIO HAL Specification](https://peat-oboe-adb.notion.site/0-1-Initial-GPIO-HAL-3d6f31e5ae3880f1bed4ebf7fad157b9?source=copy_link)
