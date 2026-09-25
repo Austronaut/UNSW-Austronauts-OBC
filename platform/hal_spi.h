@@ -22,14 +22,13 @@
 #define CS_PORT_OUT     P4OUT
 #define CS_BIT          BIT4   /* P4.4 - CS (active low) */
 
-/* GDO0 / GDO2 — plain GPIO inputs, free pins (adjust to your wiring) */
-#define GDO0_PORT_DIR   P2DIR
-#define GDO0_PORT_IN    P2IN
-#define GDO0_BIT        BIT0   /* P2.0 - GDO0 */
+#define GDO0_PORT_DIR   P3DIR
+#define GDO0_PORT_IN    P3IN
+#define GDO0_BIT        BIT0   /* P3.0 - GDO0 (provisional) */
 
-#define GDO2_PORT_DIR   P2DIR
-#define GDO2_PORT_IN    P2IN
-#define GDO2_BIT        BIT1   /* P2.1 - GDO2 */
+#define GDO2_PORT_DIR   P3DIR
+#define GDO2_PORT_IN    P3IN
+#define GDO2_BIT        BIT1   /* P3.1 - GDO2 (provisional) */
 
 /* CC1101 command strobe / access-mode bits (address byte framing) */
 #define CC1101_WRITE_BURST      0x40
