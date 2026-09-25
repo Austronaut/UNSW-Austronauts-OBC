@@ -62,21 +62,22 @@
 //   Built with IAR Embedded Workbench V6.30 & Code Composer Studio V6.1
 //******************************************************************************
 #include <msp430.h>
+#include "hal_clock.h"
+#include "hal_spi.h"
 
 int main(void)
 {
-    WDTCTL = WDTPW | WDTHOLD;               // Stop WDT
+    WDTCTL = WDTPW | WDTHOLD;      /* stop watchdog - must be first, or the
+                                     * chip resets itself before anything runs */
 
-    // Configure GPIO
-    P1OUT &= ~BIT0;                         // Clear P1.0 output latch for a defined power-on state
-    P1DIR |= BIT0;                          // Set P1.0 to output direction
+    HAL_Clock_Init();              /* SMCLK -> ~1 MHz DCO, must precede
+                                     * HAL_SPI_Init (assumes this frequency) */
 
-    PM5CTL0 &= ~LOCKLPM5;                   // Disable the GPIO power-on default high-impedance mode
-                                            // to activate previously configured port settings
+    HAL_SPI_Init();                /* eUSCI_B1 SPI + CS/GDO0/GDO2 pins +
+                                     * LOCKLPM5 unlock */
 
-    while(1)
+    while (1)
     {
-        P1OUT ^= BIT0;                      // Toggle LED
-        __delay_cycles(100000);
+        /* Day 2 bring-up check goes here: toggle CS, scope P4.4 */
     }
 }
