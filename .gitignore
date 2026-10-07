@@ -44,8 +44,6 @@ Release/
 .launches/
 .metadata/
 RemoteSystemsTempFiles/
-# Host builds, Python environment and caches
-build/
-.venv/
-__pycache__/
-.pytest_cache/
+
+# caches
+.cache
