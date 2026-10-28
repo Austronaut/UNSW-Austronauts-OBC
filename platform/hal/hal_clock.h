@@ -3,7 +3,8 @@
  * @brief  Driver for the Clock System (CS) module.
  *
  * Configures the DCO to 8 MHz and sources MCLK and SMCLK from it, undivided.
- * ACLK is sourced from the VLO (~10 kHz, uncalibrated).
+ * ACLK is sourced from the VLO: 6 to 14 kHz, 9.4 kHz typical, uncalibrated
+ * (SLASE54D 8.12.3.4). Do not use ACLK for accurate timing.
  *
  * Call hal_clock_init() once at startup, before initialising any module
  * whose timing depends on a clock frequency (e.g. hal_uart_init()).
