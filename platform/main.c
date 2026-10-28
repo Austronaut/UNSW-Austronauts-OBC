@@ -43,10 +43,10 @@
  *
  * --/COPYRIGHT--*/
 //******************************************************************************
-//  MSP430FR5x9x Demo - Toggle P1.0 using software
+//  OBC platform entry point.
 //
-//  Description: Toggle P1.0 using software.
-//  ACLK = n/a, MCLK = SMCLK = default DCO
+//  Stage 1 check: clock HAL. Toggles the LED on P1.0 every 0.5 s, so it
+//  blinks at 1 Hz when MCLK is 8 MHz.
 //
 //           MSP430FR5994
 //         ---------------
@@ -56,12 +56,11 @@
 //        |               |
 //        |           P1.0|-->LED
 //
-//   William Goh
-//   Texas Instruments Inc.
-//   October 2015
-//   Built with IAR Embedded Workbench V6.30 & Code Composer Studio V6.1
+//  Originally derived from TI's MSP430FR5x9x P1.0 toggle example.
 //******************************************************************************
 #include <msp430.h>
+
+#include "hal/hal_clock.h"
 
 int main(void)
 {
@@ -74,9 +73,11 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;                   // Disable the GPIO power-on default high-impedance mode
                                             // to activate previously configured port settings
 
+    hal_clock_init();
+
     while(1)
     {
         P1OUT ^= BIT0;                      // Toggle LED
-        __delay_cycles(100000);
+        __delay_cycles(HAL_CLOCK_MCLK_HZ / 2);  // 0.5 s at MCLK
     }
 }
