@@ -45,8 +45,9 @@
 //******************************************************************************
 //  OBC platform entry point.
 //
-//  Stage 1 check: clock HAL. Toggles the LED on P1.0 every 0.5 s, so it
-//  blinks at 1 Hz when MCLK is 8 MHz.
+//  Stage 2 check: UART init. Initialises eUSCI_A0, then blinks the LED on
+//  P1.0 at 1 Hz if hal_uart_init() returned HAL_OK, or at 5 Hz if it
+//  returned an error. UART_INIT_TEST_CASE selects which case to exercise.
 //
 //           MSP430FR5994
 //         ---------------
@@ -60,7 +61,22 @@
 //******************************************************************************
 #include <msp430.h>
 
+#include <stddef.h>
+
 #include "hal/hal_clock.h"
+#include "hal/hal_uart.h"
+
+// 0: 115200 8N1, expect HAL_OK
+// 1: 9600 8N1, expect HAL_OK
+// 2: UART init before clock init, expect trap, then HAL_ERR_NOT_INITIALISED
+// 3: instance A1, expect HAL_ERR_UNSUPPORTED (no trap)
+// 4: 12345 baud, expect HAL_ERR_UNSUPPORTED (no trap)
+// 5: NULL config, expect trap, then HAL_ERR_INVALID_ARG
+// 6: NULL config twice, expect two separate traps (re-arm), then HAL_ERR_INVALID_ARG
+#define UART_INIT_TEST_CASE 0
+
+// File scope and volatile so the debugger can always read it.
+static volatile hal_status_t uart_status;
 
 int main(void)
 {
@@ -73,11 +89,42 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;                   // Disable the GPIO power-on default high-impedance mode
                                             // to activate previously configured port settings
 
+    hal_uart_config_t config = {
+        .baud_rate_bps = 115200,
+        .parity = HAL_UART_PARITY_NONE,
+        .stop_bits = HAL_UART_STOP_BITS_1,
+    };
+    const hal_uart_config_t *config_ptr = &config;
+    hal_uart_instance_t instance = HAL_UART_INSTANCE_A0;
+
+#if UART_INIT_TEST_CASE == 1
+    config.baud_rate_bps = 9600;
+#elif UART_INIT_TEST_CASE == 3
+    instance = HAL_UART_INSTANCE_A1;
+#elif UART_INIT_TEST_CASE == 4
+    config.baud_rate_bps = 12345;
+#elif UART_INIT_TEST_CASE == 5 || UART_INIT_TEST_CASE == 6
+    config_ptr = NULL;
+#endif
+
+#if UART_INIT_TEST_CASE != 2
     hal_clock_init();
+#endif
+#if UART_INIT_TEST_CASE == 6
+    uart_status = hal_uart_init(instance, config_ptr);  // first trap
+#endif
+    uart_status = hal_uart_init(instance, config_ptr);
+#if UART_INIT_TEST_CASE == 2
+    hal_clock_init();                       // late, so the blink timing is still right
+#endif
 
     while(1)
     {
         P1OUT ^= BIT0;                      // Toggle LED
-        __delay_cycles(HAL_CLOCK_MCLK_HZ / 2);  // 0.5 s at MCLK
+        if (uart_status == HAL_OK) {
+            __delay_cycles(HAL_CLOCK_MCLK_HZ / 2);   // 0.5 s: 1 Hz blink
+        } else {
+            __delay_cycles(HAL_CLOCK_MCLK_HZ / 10);  // 0.1 s: 5 Hz blink
+        }
     }
 }
