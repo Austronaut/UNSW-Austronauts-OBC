@@ -62,8 +62,10 @@
 #include <msp430.h>
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "hal/hal_clock.h"
+#include "hal/hal_status.h"
 #include "hal/hal_uart.h"
 
 // 0: 115200 8N1, expect HAL_OK
@@ -75,8 +77,9 @@
 // 6: NULL config twice, expect two separate traps (re-arm), then HAL_ERR_INVALID_ARG
 #define UART_INIT_TEST_CASE 0
 
-// File scope and volatile so the debugger can always read it.
+// File scope and volatile so the debugger can always read them.
 static volatile hal_status_t uart_status;
+static volatile uint16_t violations;
 
 int main(void)
 {
@@ -117,6 +120,7 @@ int main(void)
 #if UART_INIT_TEST_CASE == 2
     hal_clock_init();                       // late, so the blink timing is still right
 #endif
+    violations = hal_status_get_contract_violations();
 
     while(1)
     {

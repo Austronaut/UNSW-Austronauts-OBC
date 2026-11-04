@@ -198,7 +198,9 @@ if (data == NULL) {
 }
 ```
 
-In debug builds, `HAL_DEBUG_TRAP()` stops execution at the faulty call so the debugger shows where it happened. Execution can be resumed from the debugger. In builds that define `NDEBUG`, it compiles to nothing.
+In every build, `HAL_DEBUG_TRAP()` increments a contract-violation count, which housekeeping telemetry can read with `hal_status_get_contract_violations()`.
+
+Only builds that define `HAL_DEBUG_TRAPS` also stop execution at the faulty call, so the debugger shows where it happened; execution can be resumed from the debugger. The Debug build configuration defines `HAL_DEBUG_TRAPS` and the Release configuration does not, so trapping is opt-in: a build that leaves the symbol out is safe for flight.
 
 The function returns the same error code in every build, so debug and flight builds take the same path after the check. A failed check must never halt flight software: it reports the error and lets the caller recover.
 

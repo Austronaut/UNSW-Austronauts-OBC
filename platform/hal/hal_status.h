@@ -10,6 +10,7 @@
 #define HAL_STATUS_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 /** Result of a HAL operation that can fail. */
 typedef enum {
@@ -28,29 +29,45 @@ typedef enum {
 extern volatile bool hal_debug_trap_hold;
 
 /**
- * @brief  Holds execution until the debugger clears hal_debug_trap_hold.
+ * @brief  Records a programmer error and, in debug builds, holds execution.
  *
- * Called through HAL_DEBUG_TRAP() on a programmer error, so the debugger
- * stops with the faulty caller one frame below this one. Every call re-arms
- * the trap by setting hal_debug_trap_hold to true.
+ * Called through HAL_DEBUG_TRAP() when a contract check fails. Every call
+ * increments the contract-violation count. When HAL_DEBUG_TRAPS is defined
+ * (the Debug build configuration only), it then holds until the debugger
+ * clears hal_debug_trap_hold, with the faulty caller one frame below. Each
+ * call re-arms the hold.
  *
- * @pre    The watchdog is stopped, or it will reset the device while held.
- * @post   hal_debug_trap_hold is false.
+ * @pre    With HAL_DEBUG_TRAPS defined, the watchdog is stopped, or it will
+ *         reset the device while held.
+ * @post   The contract-violation count is one higher, unless it was already
+ *         UINT16_MAX. hal_debug_trap_hold is false.
  *
  * @par Blocking
- *      Yes, with no bound: waits until a debugger clears
- *      hal_debug_trap_hold. This is the one deliberate exception to the
- *      bounded-blocking rule; it is only reached in builds without NDEBUG.
+ *      With HAL_DEBUG_TRAPS defined: yes, with no bound, until a debugger
+ *      clears hal_debug_trap_hold. This is the one deliberate exception to
+ *      the bounded-blocking rule. Without it: no.
  * @par ISR-safe
- *      Yes. Holds the whole CPU when called from an ISR.
+ *      Yes. With HAL_DEBUG_TRAPS defined, holds the whole CPU when called
+ *      from an ISR.
  */
 void hal_debug_trap(void);
 
-/** Calls hal_debug_trap() in debug builds; compiles to nothing with NDEBUG. */
-#ifdef NDEBUG
-#define HAL_DEBUG_TRAP() ((void)0)
-#else
+/**
+ * @brief  Returns how many contract violations have occurred since reset.
+ *
+ * @pre    None.
+ *
+ * @par Blocking
+ *      No.
+ * @par ISR-safe
+ *      Yes. The count is 16 bits, which this CPU reads in one access.
+ *
+ * @return Number of HAL_DEBUG_TRAP() calls since reset, saturating at
+ *         UINT16_MAX.
+ */
+uint16_t hal_status_get_contract_violations(void);
+
+/** Reports a failed contract check. See hal_debug_trap(). */
 #define HAL_DEBUG_TRAP() hal_debug_trap()
-#endif
 
 #endif // HAL_STATUS_H
