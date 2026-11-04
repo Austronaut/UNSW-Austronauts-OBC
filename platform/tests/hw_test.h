@@ -20,6 +20,14 @@
  *   6  UART init with NULL config twice (traps twice in Debug builds)
  *   7  UART init, 9600 8E2
  *   8  UART init with an invalid parity value (traps in Debug builds)
+ *   9  UART write, all bytes accepted ("hello" appears on the terminal)
+ *  10  UART write before init (traps in Debug builds)
+ *  11  UART write of NULL with length 0, accepted without a violation
+ *  12  UART write with no waiting budget accepts 1 or 2 bytes
+ *  13  UART write budget covers the whole call, not each byte
+ *
+ * main() reports the result on the LED and, once the UART works, on the
+ * terminal at 115200 8N1.
  */
 
 #ifndef HW_TEST_H
@@ -29,7 +37,7 @@
 #include <stdint.h>
 
 /** Number of test cases; valid case numbers are 0 to HW_TEST_CASE_COUNT - 1. */
-#define HW_TEST_CASE_COUNT 9
+#define HW_TEST_CASE_COUNT 14
 
 /**
  * Case to run. Written by the developer from the debugger while the target

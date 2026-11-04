@@ -7,11 +7,17 @@
  *
  * Requires hal_clock_init() before hal_uart_init(), since baud settings are
  * selected by the SMCLK frequency.
+ *
+ * Transmission is queue-and-flush: hal_uart_write() returns once bytes are
+ * accepted for sending, not once they are on the wire. Today it polls the
+ * hardware; a later interrupt-driven version will accept bytes into a buffer
+ * instead, without changing callers.
  */
 
 #ifndef HAL_UART_H
 #define HAL_UART_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "hal/hal_status.h"
@@ -76,5 +82,53 @@ typedef struct {
  */
 hal_status_t hal_uart_init(hal_uart_instance_t instance,
                            const hal_uart_config_t *config);
+
+/**
+ * Minimum MCLK cycles one timeout loop takes in hal_uart_write(). A loop
+ * also includes a few cycles of polling overhead; see each contract.
+ */
+#define HAL_UART_LOOP_CYCLES 64
+
+/**
+ * @brief  Queues bytes for transmission on a UART.
+ *
+ * Returns once every byte has been accepted for sending. Accepted bytes may
+ * still be in transit when this returns; call hal_uart_flush() to wait until
+ * they have left the pin.
+ *
+ * @param[in]  instance       UART to write to. Must be less than
+ *                            HAL_UART_INSTANCE_COUNT.
+ * @param[in]  data           Bytes to send. Must not be NULL unless
+ *                            length_bytes is 0.
+ * @param[in]  length_bytes   Number of bytes to send. 0 sends nothing.
+ * @param[in]  timeout_loops  Waiting budget for the whole call, in loops of
+ *                            at least HAL_UART_LOOP_CYCLES MCLK cycles. 0
+ *                            accepts only what fits without waiting.
+ * @param[out] bytes_written  If not NULL, set on every return to the number
+ *                            of bytes accepted, including 0 on error.
+ *
+ * @pre    hal_uart_init() has returned HAL_STATUS_OK for this instance.
+ * @post   The first *bytes_written bytes of data will be sent, in order.
+ *
+ * @par Blocking
+ *      Yes. Waits while the transmitter is busy, at most timeout_loops
+ *      loops of about HAL_UART_LOOP_CYCLES + 20 MCLK cycles each (about
+ *      10 us at 8 MHz; overhead measured from the Debug build). One byte
+ *      takes about 10 bit times (about 700 MCLK cycles at 115200 baud), so
+ *      a full write needs about 9 loops per byte at that rate.
+ * @par ISR-safe
+ *      No. Not reentrant: calls for the same instance must not overlap.
+ *
+ * @retval HAL_STATUS_OK               All length_bytes bytes were accepted.
+ * @retval HAL_STATUS_INVALID_ARG      instance is out of range, or data is
+ *                                     NULL with length_bytes above 0.
+ * @retval HAL_STATUS_NOT_INITIALISED  instance has not been initialised.
+ * @retval HAL_STATUS_TIMEOUT          The budget ran out first; only the
+ *                                     first *bytes_written bytes were
+ *                                     accepted.
+ */
+hal_status_t hal_uart_write(hal_uart_instance_t instance,
+                            const uint8_t *data, size_t length_bytes,
+                            uint32_t timeout_loops, size_t *bytes_written);
 
 #endif // HAL_UART_H

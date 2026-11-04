@@ -192,6 +192,83 @@ static bool test_init_invalid_parity(void)
     return true;
 }
 
+// Generous write budget for cases that expect every byte to be accepted.
+#define WRITE_TIMEOUT_LOOPS 1000
+
+// Ten bytes, so the 100-byte string below is easy to count.
+#define TEN_X "xxxxxxxxxx"
+
+static bool test_write_ok(void)
+{
+    static const char text[] = "hello\r\n";
+    size_t written = 0;
+    hal_clock_init();
+    CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
+    uint16_t violations = hal_status_get_contract_violations();
+    CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text,
+                         sizeof(text) - 1, WRITE_TIMEOUT_LOOPS, &written) == HAL_STATUS_OK);
+    CHECK(written == sizeof(text) - 1);
+    CHECK(hal_status_get_contract_violations() == violations);
+    return true;
+}
+
+static bool test_write_before_init(void)
+{
+    static const char text[] = "x";
+    size_t written = 99;                    // must be overwritten with 0
+    uint16_t violations = hal_status_get_contract_violations();
+    hal_clock_init();
+    CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text, 1,
+                         WRITE_TIMEOUT_LOOPS, &written) == HAL_STATUS_NOT_INITIALISED);
+    CHECK(written == 0);
+    CHECK(hal_status_get_contract_violations() == violations + 1);
+    return true;
+}
+
+// NULL with length 0 is a valid empty write, not a programmer error.
+static bool test_write_empty(void)
+{
+    size_t written = 99;
+    hal_clock_init();
+    CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
+    uint16_t violations = hal_status_get_contract_violations();
+    CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, NULL, 0, 0, &written) == HAL_STATUS_OK);
+    CHECK(written == 0);
+    CHECK(hal_status_get_contract_violations() == violations);
+    return true;
+}
+
+// Runs straight after init so nothing else is being sent. TXBUF accepts the
+// first byte at once; the second only fits if the first has already moved
+// to the shift register (SLAU367P 30.3.8), so 1 or 2 bytes are accepted.
+static bool test_write_no_wait(void)
+{
+    static const char text[] = "0123456789";
+    size_t written = 0;
+    hal_clock_init();
+    CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
+    CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text,
+                         sizeof(text) - 1, 0, &written) == HAL_STATUS_TIMEOUT);
+    CHECK(written >= 1 && written <= 2);
+    return true;
+}
+
+// 50 loops is about 4100 cycles, enough for only a handful of bytes at
+// 115200 baud. If the budget were wrongly applied per byte, all 100 would
+// be accepted, since each byte needs only about 9 loops.
+static bool test_write_budget_per_call(void)
+{
+    static const char text[] = TEN_X TEN_X TEN_X TEN_X TEN_X
+                               TEN_X TEN_X TEN_X TEN_X TEN_X;
+    size_t written = 0;
+    hal_clock_init();
+    CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
+    CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text,
+                         sizeof(text) - 1, 50, &written) == HAL_STATUS_TIMEOUT);
+    CHECK(written > 2 && written < sizeof(text) - 1);
+    return true;
+}
+
 // Indexed by case number; order must match the list in hw_test.h.
 static bool (*const test_cases[HW_TEST_CASE_COUNT])(void) = {
     test_init_115200_8n1,
@@ -203,6 +280,11 @@ static bool (*const test_cases[HW_TEST_CASE_COUNT])(void) = {
     test_init_null_config_twice,
     test_init_9600_8e2,
     test_init_invalid_parity,
+    test_write_ok,
+    test_write_before_init,
+    test_write_empty,
+    test_write_no_wait,
+    test_write_budget_per_call,
 };
 
 bool hw_test_run(uint8_t test_case)

@@ -44,6 +44,10 @@ static const uint16_t base_addresses[HAL_UART_INSTANCE_COUNT] = {
     EUSCI_A3_BASE,
 };
 
+// Set only when hal_uart_init() succeeds. A failed re-init leaves the old
+// configuration running, so it leaves this set too.
+static bool initialised[HAL_UART_INSTANCE_COUNT];
+
 static volatile uint16_t *reg(hal_uart_instance_t instance, uint16_t offset)
 {
     return (volatile uint16_t *)(uintptr_t)(base_addresses[instance] + offset);
@@ -150,5 +154,55 @@ hal_status_t hal_uart_init(hal_uart_instance_t instance,
     // Release from reset. The transmitter is idle with UCTXIFG = 1.
     *reg(instance, OFS_UCA0CTLW0) &= ~UCSWRST;
 
+    initialised[instance] = true;
     return HAL_STATUS_OK;
+}
+
+hal_status_t hal_uart_write(hal_uart_instance_t instance,
+                            const uint8_t *data, size_t length_bytes,
+                            uint32_t timeout_loops, size_t *bytes_written)
+{
+    if (bytes_written != NULL) {
+        *bytes_written = 0;
+    }
+
+    // All checks come before the length 0 case, so a bad call with no data
+    // is still caught.
+    if ((unsigned int)instance >= HAL_UART_INSTANCE_COUNT ||
+        (data == NULL && length_bytes > 0)) {
+        HAL_DEBUG_TRAP();
+        return HAL_STATUS_INVALID_ARG;
+    }
+    if (!initialised[instance]) {
+        HAL_DEBUG_TRAP();
+        return HAL_STATUS_NOT_INITIALISED;
+    }
+
+    volatile uint16_t *ifg = reg(instance, OFS_UCA0IFG);
+    volatile uint16_t *txbuf = reg(instance, OFS_UCA0TXBUF);
+    uint32_t loops_left = timeout_loops;
+    size_t sent = 0;
+    hal_status_t status = HAL_STATUS_OK;
+
+    while (sent < length_bytes) {
+        // UCTXIFG = 1 means UCAxTXBUF can take a byte; writing it clears
+        // the flag until the byte moves to the shift register (SLAU367P
+        // 30.3.8, 30.4.11).
+        if ((*ifg & UCTXIFG) != 0) {
+            *txbuf = data[sent];
+            sent++;
+        } else if (loops_left > 0) {
+            loops_left--;
+            // Fixed delay so one loop is the same length in every build.
+            __delay_cycles(HAL_UART_LOOP_CYCLES);
+        } else {
+            status = HAL_STATUS_TIMEOUT;
+            break;
+        }
+    }
+
+    if (bytes_written != NULL) {
+        *bytes_written = sent;
+    }
+    return status;
 }
