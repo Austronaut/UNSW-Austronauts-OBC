@@ -78,7 +78,7 @@ hal_status_t hal_uart_init(hal_uart_instance_t instance,
 {
     if ((unsigned int)instance >= HAL_UART_INSTANCE_COUNT || config == NULL) {
         HAL_DEBUG_TRAP();
-        return HAL_ERR_INVALID_ARG;
+        return HAL_STATUS_INVALID_ARG;
     }
 
     // UCAxCTLW0 frame bits (SLAU367P 30.4.1, Table 30-8). Leaving the other
@@ -91,29 +91,29 @@ hal_status_t hal_uart_init(hal_uart_instance_t instance,
     case HAL_UART_PARITY_ODD:  frame_bits = UCPEN;           break; // UCPAR = 0: odd
     default:
         HAL_DEBUG_TRAP();
-        return HAL_ERR_INVALID_ARG;
+        return HAL_STATUS_INVALID_ARG;
     }
     switch (config->stop_bits) {
     case HAL_UART_STOP_BITS_1:                               break;
     case HAL_UART_STOP_BITS_2: frame_bits |= UCSPB;          break;
     default:
         HAL_DEBUG_TRAP();
-        return HAL_ERR_INVALID_ARG;
+        return HAL_STATUS_INVALID_ARG;
     }
 
     if (instance != HAL_UART_INSTANCE_A0) {
-        return HAL_ERR_UNSUPPORTED;
+        return HAL_STATUS_UNSUPPORTED;
     }
 
     uint32_t smclk_hz = hal_clock_get_smclk_hz();
     if (smclk_hz == 0) {
         HAL_DEBUG_TRAP();
-        return HAL_ERR_NOT_INITIALISED;
+        return HAL_STATUS_NOT_INITIALISED;
     }
 
     const baud_setting_t *baud = find_baud_setting(smclk_hz, config->baud_rate_bps);
     if (baud == NULL) {
-        return HAL_ERR_UNSUPPORTED;
+        return HAL_STATUS_UNSUPPORTED;
     }
 
     // All checks passed; only now touch the hardware. Sequence from
@@ -136,5 +136,5 @@ hal_status_t hal_uart_init(hal_uart_instance_t instance,
     // Release from reset. The transmitter is idle with UCTXIFG = 1.
     *reg(instance, OFS_UCA0CTLW0) &= ~UCSWRST;
 
-    return HAL_OK;
+    return HAL_STATUS_OK;
 }

@@ -46,7 +46,7 @@
 //  OBC platform entry point.
 //
 //  Stage 2 check: UART init. Initialises eUSCI_A0, then blinks the LED on
-//  P1.0 at 1 Hz if hal_uart_init() returned HAL_OK, or at 5 Hz if it
+//  P1.0 at 1 Hz if hal_uart_init() returned HAL_STATUS_OK, or at 5 Hz if it
 //  returned an error. UART_INIT_TEST_CASE selects which case to exercise.
 //
 //           MSP430FR5994
@@ -68,13 +68,13 @@
 #include "hal/hal_status.h"
 #include "hal/hal_uart.h"
 
-// 0: 115200 8N1, expect HAL_OK
-// 1: 9600 8N1, expect HAL_OK
-// 2: UART init before clock init, expect trap, then HAL_ERR_NOT_INITIALISED
-// 3: instance A1, expect HAL_ERR_UNSUPPORTED (no trap)
-// 4: 12345 baud, expect HAL_ERR_UNSUPPORTED (no trap)
-// 5: NULL config, expect trap, then HAL_ERR_INVALID_ARG
-// 6: NULL config twice, expect two separate traps (re-arm), then HAL_ERR_INVALID_ARG
+// 0: 115200 8N1, expect HAL_STATUS_OK
+// 1: 9600 8N1, expect HAL_STATUS_OK
+// 2: UART init before clock init, expect trap, then HAL_STATUS_NOT_INITIALISED
+// 3: instance A1, expect HAL_STATUS_UNSUPPORTED (no trap)
+// 4: 12345 baud, expect HAL_STATUS_UNSUPPORTED (no trap)
+// 5: NULL config, expect trap, then HAL_STATUS_INVALID_ARG
+// 6: NULL config twice, expect two separate traps (re-arm), then HAL_STATUS_INVALID_ARG
 #define UART_INIT_TEST_CASE 0
 
 // File scope and volatile so the debugger can always read them.
@@ -125,7 +125,7 @@ int main(void)
     while(1)
     {
         P1OUT ^= BIT0;                      // Toggle LED
-        if (uart_status == HAL_OK) {
+        if (uart_status == HAL_STATUS_OK) {
             __delay_cycles(HAL_CLOCK_MCLK_HZ / 2);   // 0.5 s: 1 Hz blink
         } else {
             __delay_cycles(HAL_CLOCK_MCLK_HZ / 10);  // 0.1 s: 5 Hz blink

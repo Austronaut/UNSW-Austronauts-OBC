@@ -3,7 +3,7 @@
  * @brief  Driver for the eUSCI_A UART peripherals.
  *
  * Supports eUSCI_A0 only, on P2.0 (TXD) and P2.1 (RXD). On the LaunchPad
- * this is the eZ-FET backchannel UART. A1 to A3 return HAL_ERR_UNSUPPORTED.
+ * this is the eZ-FET backchannel UART. A1 to A3 return HAL_STATUS_UNSUPPORTED.
  *
  * Requires hal_clock_init() before hal_uart_init(), since baud settings are
  * selected by the SMCLK frequency.
@@ -56,7 +56,7 @@ typedef struct {
  *                       Table 30-5).
  *
  * @pre    hal_clock_init() has been called.
- * @post   On HAL_OK, the instance's pins are muxed to the UART, the
+ * @post   On HAL_STATUS_OK, the instance's pins are muxed to the UART, the
  *         transmitter is idle and ready, and UART interrupts are disabled.
  *         Calling again reconfigures the instance and aborts any character
  *         in progress. On any error, the hardware is left unchanged.
@@ -66,13 +66,13 @@ typedef struct {
  * @par ISR-safe
  *      No.
  *
- * @retval HAL_OK                   The UART is configured and running.
- * @retval HAL_ERR_INVALID_ARG      instance is out of range, config is NULL,
- *                                  or config holds an invalid parity or
- *                                  stop-bit value.
- * @retval HAL_ERR_NOT_INITIALISED  hal_clock_init() has not been called.
- * @retval HAL_ERR_UNSUPPORTED      instance is not A0, or baud_rate_bps is
- *                                  not supported at the current SMCLK.
+ * @retval HAL_STATUS_OK               The UART is configured and running.
+ * @retval HAL_STATUS_INVALID_ARG      instance is out of range, config is
+ *                                     NULL, or config holds an invalid
+ *                                     parity or stop-bit value.
+ * @retval HAL_STATUS_NOT_INITIALISED  hal_clock_init() has not been called.
+ * @retval HAL_STATUS_UNSUPPORTED      instance is not A0, or baud_rate_bps
+ *                                     is not supported at the current SMCLK.
  */
 hal_status_t hal_uart_init(hal_uart_instance_t instance,
                            const hal_uart_config_t *config);

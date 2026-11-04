@@ -14,11 +14,11 @@
 
 /** Result of a HAL operation that can fail. */
 typedef enum {
-    HAL_OK = 0,                 /**< Success. */
-    HAL_ERR_INVALID_ARG,        /**< An argument broke the function's contract. */
-    HAL_ERR_NOT_INITIALISED,    /**< The module or a dependency is not initialised. */
-    HAL_ERR_UNSUPPORTED,        /**< Valid request that the driver does not implement. */
-    HAL_ERR_TIMEOUT             /**< The operation did not finish within its budget. */
+    HAL_STATUS_OK = 0,              /**< Success. */
+    HAL_STATUS_INVALID_ARG,         /**< An argument broke the function's contract. */
+    HAL_STATUS_NOT_INITIALISED,     /**< The module or a dependency is not initialised. */
+    HAL_STATUS_UNSUPPORTED,         /**< Valid request that the driver does not implement. */
+    HAL_STATUS_TIMEOUT              /**< The operation did not finish within its budget. */
 } hal_status_t;
 
 /**

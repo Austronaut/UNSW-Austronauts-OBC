@@ -112,10 +112,10 @@ Every public function has a Doxygen comment directly above its declaration. The 
  * @par ISR-safe
  *      No.
  *
- * @retval HAL_OK                   sample holds a valid reading.
- * @retval HAL_ERR_INVALID_ARG      channel is out of range or sample is NULL.
- * @retval HAL_ERR_NOT_INITIALISED  hal_adc_init() has not been called.
- * @retval HAL_ERR_TIMEOUT          The conversion did not finish within 20 us.
+ * @retval HAL_STATUS_OK               sample holds a valid reading.
+ * @retval HAL_STATUS_INVALID_ARG      channel is out of range or sample is NULL.
+ * @retval HAL_STATUS_NOT_INITIALISED  hal_adc_init() has not been called.
+ * @retval HAL_STATUS_TIMEOUT          The conversion did not finish within 20 us.
  *
  * On any error, sample is left unchanged.
  */
@@ -159,20 +159,20 @@ The module itself gets a `@file` comment at the top of its header, saying which 
 
 HAL functions that can fail return `hal_status_t`, declared in `hal/hal_status.h` and shared by every HAL module:
 
-| Value                     | Meaning |
-|---------------------------|---------|
-| `HAL_OK`                  | Success. Always `0`. |
-| `HAL_ERR_INVALID_ARG`     | An argument broke the function's contract, such as a NULL pointer or an out-of-range value. |
-| `HAL_ERR_NOT_INITIALISED` | The module, or a module it depends on, has not been initialised. |
-| `HAL_ERR_UNSUPPORTED`     | The request is valid but not implemented, such as an instance or setting the driver does not support yet. |
-| `HAL_ERR_TIMEOUT`         | The operation did not finish within its time budget. |
+| Value                        | Meaning |
+|------------------------------|---------|
+| `HAL_STATUS_OK`              | Success. Always `0`. |
+| `HAL_STATUS_INVALID_ARG`     | An argument broke the function's contract, such as a NULL pointer or an out-of-range value. |
+| `HAL_STATUS_NOT_INITIALISED` | The module, or a module it depends on, has not been initialised. |
+| `HAL_STATUS_UNSUPPORTED`     | The request is valid but not implemented, such as an instance or setting the driver does not support yet. |
+| `HAL_STATUS_TIMEOUT`         | The operation did not finish within its time budget. |
 
 Codes are added only when a module needs one that no existing code describes. A function's `@retval` list (§6) names exactly the codes it can return.
 
-Check results against `HAL_OK`, not by truthiness:
+Check results against `HAL_STATUS_OK`, not by truthiness:
 
 ```c
-if (hal_uart_init(HAL_UART_INSTANCE_A0, &config) != HAL_OK) { ... }
+if (hal_uart_init(HAL_UART_INSTANCE_A0, &config) != HAL_STATUS_OK) { ... }
 ```
 
 Functions that cannot fail return `void`, or a value with `@return` (§6).
@@ -194,7 +194,7 @@ Every contract check calls `HAL_DEBUG_TRAP()` before returning its error:
 ```c
 if (data == NULL) {
     HAL_DEBUG_TRAP();
-    return HAL_ERR_INVALID_ARG;
+    return HAL_STATUS_INVALID_ARG;
 }
 ```
 
