@@ -45,9 +45,9 @@
 //******************************************************************************
 //  OBC platform entry point.
 //
-//  Stage 2 check: UART init. Initialises eUSCI_A0, then blinks the LED on
-//  P1.0 at 1 Hz if hal_uart_init() returned HAL_STATUS_OK, or at 5 Hz if it
-//  returned an error. UART_INIT_TEST_CASE selects which case to exercise.
+//  Runs one self-checking hardware test (tests/hw_test.h), then blinks the
+//  LED on P1.0 at 1 Hz if it passed or 5 Hz if it failed. Select the case by
+//  pausing, setting hw_test_case from the debugger, then restarting.
 //
 //           MSP430FR5994
 //         ---------------
@@ -61,27 +61,13 @@
 //******************************************************************************
 #include <msp430.h>
 
-#include <stddef.h>
-#include <stdint.h>
+#include <stdbool.h>
 
 #include "hal/hal_clock.h"
-#include "hal/hal_status.h"
-#include "hal/hal_uart.h"
+#include "tests/hw_test.h"
 
-// 0: 115200 8N1, expect HAL_STATUS_OK
-// 1: 9600 8N1, expect HAL_STATUS_OK
-// 2: UART init before clock init, expect trap, then HAL_STATUS_NOT_INITIALISED
-// 3: instance A1, expect HAL_STATUS_UNSUPPORTED (no trap)
-// 4: 12345 baud, expect HAL_STATUS_UNSUPPORTED (no trap)
-// 5: NULL config, expect trap, then HAL_STATUS_INVALID_ARG
-// 6: NULL config twice, expect two separate traps (re-arm), then HAL_STATUS_INVALID_ARG
-// 7: 9600 even parity, 2 stop bits, expect HAL_STATUS_OK and UCA0CTLW0 = 0xC880
-// 8: invalid parity value, expect trap, then HAL_STATUS_INVALID_ARG
-#define UART_INIT_TEST_CASE 0
-
-// File scope and volatile so the debugger can always read them.
-static volatile hal_status_t uart_status;
-static volatile uint16_t violations;
+// File scope and volatile so the debugger can always read it.
+static volatile bool test_passed;
 
 int main(void)
 {
@@ -94,46 +80,12 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;                   // Disable the GPIO power-on default high-impedance mode
                                             // to activate previously configured port settings
 
-    hal_uart_config_t config = {
-        .baud_rate_bps = 115200,
-        .parity = HAL_UART_PARITY_NONE,
-        .stop_bits = HAL_UART_STOP_BITS_1,
-    };
-    const hal_uart_config_t *config_ptr = &config;
-    hal_uart_instance_t instance = HAL_UART_INSTANCE_A0;
-
-#if UART_INIT_TEST_CASE == 1
-    config.baud_rate_bps = 9600;
-#elif UART_INIT_TEST_CASE == 3
-    instance = HAL_UART_INSTANCE_A1;
-#elif UART_INIT_TEST_CASE == 4
-    config.baud_rate_bps = 12345;
-#elif UART_INIT_TEST_CASE == 5 || UART_INIT_TEST_CASE == 6
-    config_ptr = NULL;
-#elif UART_INIT_TEST_CASE == 7
-    config.baud_rate_bps = 9600;
-    config.parity = HAL_UART_PARITY_EVEN;
-    config.stop_bits = HAL_UART_STOP_BITS_2;
-#elif UART_INIT_TEST_CASE == 8
-    config.parity = (hal_uart_parity_t)7;   // deliberately not a valid value
-#endif
-
-#if UART_INIT_TEST_CASE != 2
-    hal_clock_init();
-#endif
-#if UART_INIT_TEST_CASE == 6
-    uart_status = hal_uart_init(instance, config_ptr);  // first trap
-#endif
-    uart_status = hal_uart_init(instance, config_ptr);
-#if UART_INIT_TEST_CASE == 2
-    hal_clock_init();                       // late, so the blink timing is still right
-#endif
-    violations = hal_status_get_contract_violations();
+    test_passed = hw_test_run(hw_test_case);
 
     while(1)
     {
         P1OUT ^= BIT0;                      // Toggle LED
-        if (uart_status == HAL_STATUS_OK) {
+        if (test_passed) {
             __delay_cycles(HAL_CLOCK_MCLK_HZ / 2);   // 0.5 s: 1 Hz blink
         } else {
             __delay_cycles(HAL_CLOCK_MCLK_HZ / 10);  // 0.1 s: 5 Hz blink
