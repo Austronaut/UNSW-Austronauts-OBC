@@ -4,10 +4,12 @@
 
 #include <msp430.h>
 
-// Above 8 MHz, MCLK outruns FRAM unless wait states are configured in
-// FRCTL0.NWAITS (SLASE54D 8.3, fSYSTEM). This driver does not set NWAITS.
-#if HAL_CLOCK_MCLK_HZ > 8000000UL
-#error "MCLK above 8 MHz requires FRAM wait states (FRCTL0.NWAITS)"
+// hal_clock_init() hardcodes register values for exactly 8 MHz (DCOFSEL_3,
+// all dividers /1), so the macros cannot change on their own. Changing them
+// means changing those writes too, and above 8 MHz also setting FRAM wait
+// states in FRCTL0.NWAITS (SLASE54D 8.3, fSYSTEM).
+#if HAL_CLOCK_MCLK_HZ != 8000000UL || HAL_CLOCK_SMCLK_HZ != 8000000UL
+#error "hal_clock_init() only supports MCLK = SMCLK = 8 MHz"
 #endif
 
 // Cycles to wait after changing DCOFSEL before removing the /4 dividers.
@@ -16,7 +18,9 @@
 #define DCO_SETTLE_CYCLES 60
 
 // 0 until hal_clock_init() runs, so callers can detect a missing init.
-static uint32_t smclk_hz = 0;
+// No initialiser: static storage starts at 0, so it goes in .bss rather
+// than .data and needs no stored initial value in FRAM.
+static uint32_t smclk_hz;
 
 void hal_clock_init(void)
 {

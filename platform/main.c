@@ -75,6 +75,8 @@
 // 4: 12345 baud, expect HAL_STATUS_UNSUPPORTED (no trap)
 // 5: NULL config, expect trap, then HAL_STATUS_INVALID_ARG
 // 6: NULL config twice, expect two separate traps (re-arm), then HAL_STATUS_INVALID_ARG
+// 7: 9600 even parity, 2 stop bits, expect HAL_STATUS_OK and UCA0CTLW0 = 0xC880
+// 8: invalid parity value, expect trap, then HAL_STATUS_INVALID_ARG
 #define UART_INIT_TEST_CASE 0
 
 // File scope and volatile so the debugger can always read them.
@@ -108,6 +110,12 @@ int main(void)
     config.baud_rate_bps = 12345;
 #elif UART_INIT_TEST_CASE == 5 || UART_INIT_TEST_CASE == 6
     config_ptr = NULL;
+#elif UART_INIT_TEST_CASE == 7
+    config.baud_rate_bps = 9600;
+    config.parity = HAL_UART_PARITY_EVEN;
+    config.stop_bits = HAL_UART_STOP_BITS_2;
+#elif UART_INIT_TEST_CASE == 8
+    config.parity = (hal_uart_parity_t)7;   // deliberately not a valid value
 #endif
 
 #if UART_INIT_TEST_CASE != 2

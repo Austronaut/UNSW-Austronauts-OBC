@@ -1,5 +1,6 @@
 #include "hal/hal_uart.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -62,6 +63,33 @@ static const baud_setting_t *find_baud_setting(uint32_t smclk_hz,
     return NULL;
 }
 
+// Builds the UCAxCTLW0 parity and stop-bit fields for config (SLAU367P
+// 30.4.1, Table 30-8). Every other field is left 0, which selects UART mode
+// (UCMODEx = 00, UCSYNC = 0), LSB first and 8 data bits. Returns false if
+// config holds an invalid parity or stop-bit value; *frame_bits is then
+// unchanged.
+static bool encode_frame_bits(const hal_uart_config_t *config,
+                              uint16_t *frame_bits)
+{
+    uint16_t bits;
+
+    switch (config->parity) {
+    case HAL_UART_PARITY_NONE: bits = 0;               break;
+    case HAL_UART_PARITY_EVEN: bits = UCPEN | UCPAR;   break; // UCPAR = 1: even
+    case HAL_UART_PARITY_ODD:  bits = UCPEN;           break; // UCPAR = 0: odd
+    default:                   return false;
+    }
+
+    switch (config->stop_bits) {
+    case HAL_UART_STOP_BITS_1:                         break;
+    case HAL_UART_STOP_BITS_2: bits |= UCSPB;          break;
+    default:                   return false;
+    }
+
+    *frame_bits = bits;
+    return true;
+}
+
 // Routes P2.0 to UCA0TXD and P2.1 to UCA0RXD: P2SEL1 = 1, P2SEL0 = 0
 // (SLASE54D Table 9-23). The eUSCI controls the pin direction.
 // TODO(stage 5): move to the board layer.
@@ -81,22 +109,8 @@ hal_status_t hal_uart_init(hal_uart_instance_t instance,
         return HAL_STATUS_INVALID_ARG;
     }
 
-    // UCAxCTLW0 frame bits (SLAU367P 30.4.1, Table 30-8). Leaving the other
-    // bits 0 selects UART mode (UCMODEx = 00, UCSYNC = 0), LSB first and
-    // 8 data bits.
     uint16_t frame_bits;
-    switch (config->parity) {
-    case HAL_UART_PARITY_NONE: frame_bits = 0;               break;
-    case HAL_UART_PARITY_EVEN: frame_bits = UCPEN | UCPAR;   break; // UCPAR = 1: even
-    case HAL_UART_PARITY_ODD:  frame_bits = UCPEN;           break; // UCPAR = 0: odd
-    default:
-        HAL_DEBUG_TRAP();
-        return HAL_STATUS_INVALID_ARG;
-    }
-    switch (config->stop_bits) {
-    case HAL_UART_STOP_BITS_1:                               break;
-    case HAL_UART_STOP_BITS_2: frame_bits |= UCSPB;          break;
-    default:
+    if (!encode_frame_bits(config, &frame_bits)) {
         HAL_DEBUG_TRAP();
         return HAL_STATUS_INVALID_ARG;
     }

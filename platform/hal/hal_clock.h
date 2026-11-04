@@ -44,7 +44,10 @@ void hal_clock_init(void);
  * @par Blocking
  *      No.
  * @par ISR-safe
- *      Yes.
+ *      Yes, once hal_clock_init() has returned. The value is 32 bits, which
+ *      this CPU reads in two 16-bit accesses, so a read during
+ *      hal_clock_init() could see half the old and half the new value.
+ *      hal_clock_init() runs once at startup, before interrupts are enabled.
  *
  * @return SMCLK frequency in Hz, or 0 if hal_clock_init() has not been called.
  */
