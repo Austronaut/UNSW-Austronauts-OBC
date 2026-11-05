@@ -43,10 +43,14 @@
  *
  * --/COPYRIGHT--*/
 //******************************************************************************
-//  MSP430FR5x9x Demo - Toggle P1.0 using software
+//  OBC platform entry point.
 //
-//  Description: Toggle P1.0 using software.
-//  ACLK = n/a, MCLK = SMCLK = default DCO
+//  Runs one self-checking hardware test (tests/hw_test.h), then blinks the
+//  LED on P1.0 at 1 Hz if it passed or 5 Hz if it failed. Select the case by
+//  pausing, setting hw_test_case from the debugger, then restarting.
+//
+//  The result is also printed on eUSCI_A0 (the LaunchPad backchannel UART)
+//  at 115200 8N1, followed by a "tick N" line every second.
 //
 //           MSP430FR5994
 //         ---------------
@@ -55,13 +59,60 @@
 //      --|RST            |
 //        |               |
 //        |           P1.0|-->LED
+//        |           P2.0|-->UCA0TXD (backchannel to PC)
 //
-//   William Goh
-//   Texas Instruments Inc.
-//   October 2015
-//   Built with IAR Embedded Workbench V6.30 & Code Composer Studio V6.1
+//  Originally derived from TI's MSP430FR5x9x P1.0 toggle example.
 //******************************************************************************
 #include <msp430.h>
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+
+#include "hal/hal_clock.h"
+#include "hal/hal_status.h"
+#include "hal/hal_uart.h"
+#include "tests/hw_test.h"
+
+// Console speed. Must match the terminal, e.g. `screen <port> 115200`.
+#define CONSOLE_BAUD_BPS 115200UL
+
+// Enough for any console string at 9600 baud or faster (about 100 loops
+// per byte at 9600, 9 at 115200); about 0.2 s if the UART never frees up.
+#define CONSOLE_TIMEOUT_LOOPS 20000
+
+// File scope and volatile so the debugger can always read them.
+static volatile bool test_passed;
+static volatile bool console_ready;
+
+static const hal_uart_config_t console_config = {
+    .baud_rate_bps = CONSOLE_BAUD_BPS,
+    .parity = HAL_UART_PARITY_NONE,
+    .stop_bits = HAL_UART_STOP_BITS_1,
+};
+
+static void console_write_str(const char *text)
+{
+    if (console_ready) {
+        (void)hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text,
+                             strlen(text), CONSOLE_TIMEOUT_LOOPS, NULL);
+    }
+}
+
+// Prints value in decimal. 16-bit keeps the division cheap: the MSP430 has
+// no hardware divider, so every division is a library call.
+static void console_write_u16(uint16_t value)
+{
+    char digits[6];                         // "65535" plus terminator
+    char *p = &digits[sizeof(digits) - 1];
+    *p = '\0';
+    do {
+        *--p = (char)('0' + value % 10);
+        value /= 10;
+    } while (value != 0);
+    console_write_str(p);
+}
 
 int main(void)
 {
@@ -74,9 +125,43 @@ int main(void)
     PM5CTL0 &= ~LOCKLPM5;                   // Disable the GPIO power-on default high-impedance mode
                                             // to activate previously configured port settings
 
+    uint8_t test_case = hw_test_case;
+    test_passed = hw_test_run(test_case);
+
+    // hw_test_run() leaves the UART idle, so re-initialising it for the
+    // console (a test may have left it at another baud rate) cuts nothing.
+    console_ready = hal_uart_init(HAL_UART_INSTANCE_A0, &console_config) == HAL_STATUS_OK;
+
+    console_write_str("\r\ncase ");
+    console_write_u16(test_case);
+    if (test_passed) {
+        console_write_str(": PASS\r\n");
+    } else {
+        console_write_str(": FAIL line ");
+        console_write_u16(hw_test_failed_line);
+        console_write_str("\r\n");
+    }
+
+    uint16_t tick = 0;
+    uint8_t toggles = 0;
     while(1)
     {
         P1OUT ^= BIT0;                      // Toggle LED
-        __delay_cycles(100000);
+        if (test_passed) {
+            __delay_cycles(HAL_CLOCK_MCLK_HZ / 2);   // 0.5 s: 1 Hz blink
+        } else {
+            __delay_cycles(HAL_CLOCK_MCLK_HZ / 10);  // 0.1 s: 5 Hz blink
+        }
+
+        // One tick per second whatever the blink rate: a toggle is 0.5 s at
+        // 1 Hz (2 per second) and 0.1 s at 5 Hz (10 per second).
+        toggles++;
+        if (toggles >= (test_passed ? 2 : 10)) {
+            toggles = 0;
+            tick++;
+            console_write_str("tick ");
+            console_write_u16(tick);
+            console_write_str("\r\n");
+        }
     }
 }
