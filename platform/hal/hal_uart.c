@@ -102,15 +102,17 @@ static bool encode_frame_bits(const hal_uart_config_t *config,
 // the wait for the next BITCLK before it starts (SLAU367P 30.3.8). This is
 // conservative: hw_test case 23 measured UCTXIFG setting at the end of the
 // start bit, so only frame - 1 bits actually remain. Rounds up, multiplying
-// before dividing so no fraction is lost.
-static uint16_t compute_frame_loops(const hal_uart_config_t *config)
+// before dividing so no fraction is lost. Loops are counted in MCLK cycles,
+// so mclk_hz is the CPU clock, not the UART's SMCLK.
+static uint16_t compute_frame_loops(const hal_uart_config_t *config,
+                                    uint32_t mclk_hz)
 {
     uint32_t bits = 1 + 8 + 1;                      // start, data, margin
     bits += (config->parity == HAL_UART_PARITY_NONE) ? 0 : 1;
     bits += (config->stop_bits == HAL_UART_STOP_BITS_2) ? 2 : 1;
 
     uint32_t cycles_per_loop_times_baud = config->baud_rate_bps * HAL_UART_LOOP_CYCLES;
-    uint32_t cycles_times_baud = bits * HAL_CLOCK_MCLK_HZ;
+    uint32_t cycles_times_baud = bits * mclk_hz;
     return (uint16_t)((cycles_times_baud + cycles_per_loop_times_baud - 1) /
                       cycles_per_loop_times_baud);
 }
@@ -155,7 +157,8 @@ hal_status_t hal_uart_init(hal_uart_instance_t instance,
         return HAL_STATUS_UNSUPPORTED;
     }
 
-    uint16_t new_frame_loops = compute_frame_loops(config);
+    // Set by the same hal_clock_init() call as SMCLK, so non-zero here.
+    uint16_t new_frame_loops = compute_frame_loops(config, hal_clock_get_mclk_hz());
 
     // All checks passed; only now touch the hardware. Sequence from
     // SLAU367P 30.3.1: hold in reset, configure, mux pins, release.

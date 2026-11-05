@@ -84,7 +84,7 @@ static const hal_uart_config_t config_115200_8n1 = {
 static bool test_init_115200_8n1(void)
 {
     uint16_t violations = hal_status_get_contract_violations();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
     CHECK(hal_status_get_contract_violations() == violations);
     CHECK(UCA0CTLW0 == 0x0080);         // SMCLK, 8N1, out of reset
@@ -98,7 +98,7 @@ static bool test_init_9600_8n1(void)
 {
     hal_uart_config_t config = config_115200_8n1;
     config.baud_rate_bps = 9600;
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config) == HAL_STATUS_OK);
     CHECK(UCA0CTLW0 == 0x0080);
     CHECK(UCA0BRW == 0x0034);           // 52
@@ -112,7 +112,7 @@ static bool test_init_before_clock(void)
     uart_a0_snapshot_t before = snapshot_a0();
     hal_status_t status = hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1);
     uart_a0_snapshot_t after = snapshot_a0();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(status == HAL_STATUS_NOT_INITIALISED);
     CHECK(hal_status_get_contract_violations() == violations + 1);
     CHECK(snapshots_equal(&before, &after));
@@ -122,7 +122,7 @@ static bool test_init_before_clock(void)
 static bool test_init_unsupported_instance(void)
 {
     uint16_t violations = hal_status_get_contract_violations();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     uart_a0_snapshot_t before = snapshot_a0();
     uint16_t a1_ctlw0 = UCA1CTLW0;
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A1, &config_115200_8n1) == HAL_STATUS_UNSUPPORTED);
@@ -138,7 +138,7 @@ static bool test_init_unsupported_baud(void)
     hal_uart_config_t config = config_115200_8n1;
     config.baud_rate_bps = 12345;
     uint16_t violations = hal_status_get_contract_violations();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     uart_a0_snapshot_t before = snapshot_a0();
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config) == HAL_STATUS_UNSUPPORTED);
     uart_a0_snapshot_t after = snapshot_a0();
@@ -150,7 +150,7 @@ static bool test_init_unsupported_baud(void)
 static bool test_init_null_config(void)
 {
     uint16_t violations = hal_status_get_contract_violations();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     uart_a0_snapshot_t before = snapshot_a0();
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, NULL) == HAL_STATUS_INVALID_ARG);
     uart_a0_snapshot_t after = snapshot_a0();
@@ -163,7 +163,7 @@ static bool test_init_null_config(void)
 static bool test_init_null_config_twice(void)
 {
     uint16_t violations = hal_status_get_contract_violations();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, NULL) == HAL_STATUS_INVALID_ARG);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, NULL) == HAL_STATUS_INVALID_ARG);
     CHECK(hal_status_get_contract_violations() == violations + 2);
@@ -177,7 +177,7 @@ static bool test_init_9600_8e2(void)
         .parity = HAL_UART_PARITY_EVEN,
         .stop_bits = HAL_UART_STOP_BITS_2,
     };
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config) == HAL_STATUS_OK);
     CHECK(UCA0CTLW0 == 0xC880);         // UCPEN | UCPAR (even) | UCSPB | SMCLK
     CHECK(UCA0BRW == 0x0034);
@@ -190,7 +190,7 @@ static bool test_init_invalid_parity(void)
     hal_uart_config_t config = config_115200_8n1;
     config.parity = (hal_uart_parity_t)7;   // deliberately not a valid value
     uint16_t violations = hal_status_get_contract_violations();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     uart_a0_snapshot_t before = snapshot_a0();
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config) == HAL_STATUS_INVALID_ARG);
     uart_a0_snapshot_t after = snapshot_a0();
@@ -210,7 +210,7 @@ static bool test_write_ok(void)
 {
     static const char text[] = "hello\r\n";
     size_t written = 0;
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
     uint16_t violations = hal_status_get_contract_violations();
     CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text,
@@ -225,7 +225,7 @@ static bool test_write_before_init(void)
     static const char text[] = "x";
     size_t written = 99;                    // must be overwritten with 0
     uint16_t violations = hal_status_get_contract_violations();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text, 1,
                          WRITE_TIMEOUT_LOOPS, &written) == HAL_STATUS_NOT_INITIALISED);
     CHECK(written == 0);
@@ -237,7 +237,7 @@ static bool test_write_before_init(void)
 static bool test_write_empty(void)
 {
     size_t written = 99;
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
     uint16_t violations = hal_status_get_contract_violations();
     CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, NULL, 0, 0, &written) == HAL_STATUS_OK);
@@ -253,7 +253,7 @@ static bool test_write_no_wait(void)
 {
     static const char text[] = "0123456789";
     size_t written = 0;
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
     CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text,
                          sizeof(text) - 1, 0, &written) == HAL_STATUS_TIMEOUT);
@@ -269,7 +269,7 @@ static bool test_write_budget_per_call(void)
     static const char text[] = TEN_X TEN_X TEN_X TEN_X TEN_X
                                TEN_X TEN_X TEN_X TEN_X TEN_X;
     size_t written = 0;
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
     CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text,
                          sizeof(text) - 1, 50, &written) == HAL_STATUS_TIMEOUT);
@@ -286,7 +286,7 @@ static bool uart_a0_idle(void)
 // Don't type in the terminal while it runs: received data sets UCBUSY.
 static bool test_flush_idle(void)
 {
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
     CHECK(hal_uart_flush(HAL_UART_INSTANCE_A0, 0) == HAL_STATUS_OK);
     CHECK(uart_a0_idle());
@@ -296,7 +296,7 @@ static bool test_flush_idle(void)
 static bool test_flush_after_write(void)
 {
     static const char text[] = "flush\r\n";
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
     CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text,
                          sizeof(text) - 1, WRITE_TIMEOUT_LOOPS, NULL) == HAL_STATUS_OK);
@@ -310,7 +310,7 @@ static bool test_flush_after_write(void)
 static bool test_flush_no_wait(void)
 {
     static const char text[] = "z";
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config_115200_8n1) == HAL_STATUS_OK);
     CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text, 1,
                          WRITE_TIMEOUT_LOOPS, NULL) == HAL_STATUS_OK);
@@ -325,7 +325,7 @@ static bool test_flush_no_wait(void)
 static bool flush_then_reinit(const hal_uart_config_t *config)
 {
     static const char text[] = "ABCDEFGH\r\n";
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, config) == HAL_STATUS_OK);
     for (uint8_t i = 0; i < 5; i++) {
         CHECK(hal_uart_write(HAL_UART_INSTANCE_A0, (const uint8_t *)text,
@@ -369,7 +369,7 @@ static bool test_flush_timing_9600(void)
     static const char text[] = "UU";
     hal_uart_config_t config = config_115200_8n1;
     config.baud_rate_bps = 9600;
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, &config) == HAL_STATUS_OK);
 
     TA0CTL = TASSEL__SMCLK | MC__CONTINUOUS | TACLR;
@@ -394,7 +394,7 @@ static bool test_flush_timing_9600(void)
 static bool test_flush_before_init(void)
 {
     uint16_t violations = hal_status_get_contract_violations();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_flush(HAL_UART_INSTANCE_A0, 0) == HAL_STATUS_NOT_INITIALISED);
     CHECK(hal_status_get_contract_violations() == violations + 1);
     return true;
@@ -403,7 +403,7 @@ static bool test_flush_before_init(void)
 static bool test_flush_invalid_instance(void)
 {
     uint16_t violations = hal_status_get_contract_violations();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_flush((hal_uart_instance_t)7, 0) == HAL_STATUS_INVALID_ARG);
     CHECK(hal_status_get_contract_violations() == violations + 1);
     return true;
@@ -413,7 +413,7 @@ static bool test_flush_invalid_instance(void)
 static bool test_flush_unsupported_instance(void)
 {
     uint16_t violations = hal_status_get_contract_violations();
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A1, &config_115200_8n1) == HAL_STATUS_UNSUPPORTED);
     CHECK(hal_uart_flush(HAL_UART_INSTANCE_A1, 0) == HAL_STATUS_NOT_INITIALISED);
     CHECK(hal_status_get_contract_violations() == violations + 1);
@@ -445,7 +445,7 @@ static bool test_flush_unsupported_instance(void)
 static bool probe_tx_flag_timing(const hal_uart_config_t *config, uint16_t stop_bits)
 {
     static const char text[] = "UU";
-    hal_clock_init();
+    CHECK(hal_clock_init() == HAL_STATUS_OK);
     CHECK(hal_uart_init(HAL_UART_INSTANCE_A0, config) == HAL_STATUS_OK);
 
     hw_probe_rises = 0;
@@ -566,7 +566,7 @@ bool hw_test_run(uint8_t test_case)
     hw_test_failed_line = 0;
 
     if (test_case >= HW_TEST_CASE_COUNT) {
-        hal_clock_init();
+        (void)hal_clock_init();             // for main()'s blink timing
         hw_test_failed_line = __LINE__;
         return false;
     }

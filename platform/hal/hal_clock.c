@@ -17,12 +17,13 @@
 // is 30 us (still 15 us if the DCO is later raised to 16 MHz).
 #define DCO_SETTLE_CYCLES 60
 
-// 0 until hal_clock_init() runs, so callers can detect a missing init.
-// No initialiser: static storage starts at 0, so it goes in .bss rather
-// than .data and needs no stored initial value in FRAM.
+// Both 0 until hal_clock_init() runs, so callers can detect a missing init.
+// No initialisers: static storage starts at 0, so these go in .bss rather
+// than .data and need no stored initial values in FRAM.
+static uint32_t mclk_hz;
 static uint32_t smclk_hz;
 
-void hal_clock_init(void)
+hal_status_t hal_clock_init(void)
 {
     // CSCTL0 upper byte is the CS password (CSKEY). Writing A5h unlocks
     // writes to the other CS registers (SLAU367P 3.3.1, Table 3-4).
@@ -56,7 +57,14 @@ void hal_clock_init(void)
     // a wrong key to CSCTL0 as a word.
     CSCTL0_H = 0;
 
+    mclk_hz = HAL_CLOCK_MCLK_HZ;
     smclk_hz = HAL_CLOCK_SMCLK_HZ;
+    return HAL_STATUS_OK;
+}
+
+uint32_t hal_clock_get_mclk_hz(void)
+{
+    return mclk_hz;
 }
 
 uint32_t hal_clock_get_smclk_hz(void)

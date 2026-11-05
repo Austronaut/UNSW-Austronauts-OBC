@@ -182,7 +182,7 @@ Check results against `HAL_STATUS_OK`, not by truthiness:
 if (hal_uart_init(HAL_UART_INSTANCE_A0, &config) != HAL_STATUS_OK) { ... }
 ```
 
-Functions that cannot fail return `void`, or a value with `@return` (§6).
+Functions that cannot fail return `void`, or a value with `@return` (§6). The exception is a function that a known requirement will make fallible, such as clock init on a board whose crystals can fail to start: it returns `hal_status_t` from the start, because changing a return type later breaks every caller. Its contract says why.
 
 ### 7.2 Three kinds of failure
 
