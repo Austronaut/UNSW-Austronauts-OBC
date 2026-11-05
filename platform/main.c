@@ -82,10 +82,6 @@
 // per byte at 9600, 9 at 115200); about 0.2 s if the UART never frees up.
 #define CONSOLE_TIMEOUT_LOOPS 20000
 
-// Longest time a test can leave bytes in transit: two 12-bit frames at
-// 9600 baud is about 21,000 cycles. Replaced by hal_uart_flush() in 3b.
-#define CONSOLE_DRAIN_CYCLES 40000
-
 // File scope and volatile so the debugger can always read them.
 static volatile bool test_passed;
 static volatile bool console_ready;
@@ -132,9 +128,8 @@ int main(void)
     uint8_t test_case = hw_test_case;
     test_passed = hw_test_run(test_case);
 
-    // Let any bytes the test left in transit finish, then reconfigure the
-    // UART for the console (a test may have left it at another baud rate).
-    __delay_cycles(CONSOLE_DRAIN_CYCLES);
+    // hw_test_run() leaves the UART idle, so re-initialising it for the
+    // console (a test may have left it at another baud rate) cuts nothing.
     console_ready = hal_uart_init(HAL_UART_INSTANCE_A0, &console_config) == HAL_STATUS_OK;
 
     console_write_str("\r\ncase ");

@@ -25,6 +25,21 @@
  *  11  UART write of NULL with length 0, accepted without a violation
  *  12  UART write with no waiting budget accepts 1 or 2 bytes
  *  13  UART write budget covers the whole call, not each byte
+ *  14  UART flush with nothing written succeeds at once (don't type in the
+ *      terminal while it runs)
+ *  15  UART flush after a write ("flush" appears on the terminal)
+ *  16  UART flush with no budget times out while a byte is sending
+ *  17  UART write, flush, re-init five times at 115200 8N1 (five clean
+ *      "ABCDEFGH" lines)
+ *  18  The same at 9600 8E2 (garbage on a 115200 terminal is expected)
+ *  19  UART flush timing at 9600, measured with Timer_A0; the measured
+ *      cycles are left in hw_test_flush_cycles
+ *  20  UART flush before init (traps in Debug builds)
+ *  21  UART flush with an out-of-range instance (traps in Debug builds)
+ *  22  UART flush on unsupported A1 (traps in Debug builds)
+ *  23  UCBUSY falls no earlier than the end of the stop bit, measured on
+ *      the TX pin at 9600 8N1 (timestamps in hw_probe_*)
+ *  24  The same at 9600 8E2: UCBUSY waits for both stop bits
  *
  * main() reports the result on the LED and, once the UART works, on the
  * terminal at 115200 8N1.
@@ -37,7 +52,7 @@
 #include <stdint.h>
 
 /** Number of test cases; valid case numbers are 0 to HW_TEST_CASE_COUNT - 1. */
-#define HW_TEST_CASE_COUNT 14
+#define HW_TEST_CASE_COUNT 25
 
 /**
  * Case to run. Written by the developer from the debugger while the target
@@ -51,6 +66,25 @@ extern volatile uint8_t hw_test_case;
  * Written only by hw_test.c.
  */
 extern volatile uint16_t hw_test_failed_line;
+
+/**
+ * SMCLK cycles case 19 measured from UCTXIFG setting for the last byte (the
+ * end of its start bit) to hal_uart_flush() returning. Expected just over
+ * 7486 (9 bits at 9600 baud). Written only by hw_test.c.
+ */
+extern volatile uint16_t hw_test_flush_cycles;
+
+/**
+ * Results of the last case 23 or 24 run, in SMCLK cycles after UCTXIFG set
+ * for the last byte; 0xFFFF means not seen. See probe_tx_flag_timing() in
+ * hw_test.c.
+ * Written only by hw_test.c.
+ */
+extern volatile uint16_t hw_probe_rises;
+extern volatile uint16_t hw_probe_start_fall;
+extern volatile uint16_t hw_probe_stop_rise;
+extern volatile uint16_t hw_probe_busy_fall;
+extern volatile uint16_t hw_probe_cpt[2];
 
 /**
  * @brief  Runs one hardware test case and checks its results.

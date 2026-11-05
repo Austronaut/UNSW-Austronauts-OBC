@@ -64,8 +64,10 @@ typedef struct {
  * @pre    hal_clock_init() has been called.
  * @post   On HAL_STATUS_OK, the instance's pins are muxed to the UART, the
  *         transmitter is idle and ready, and UART interrupts are disabled.
- *         Calling again reconfigures the instance and aborts any character
- *         in progress. On any error, the hardware is left unchanged.
+ *         Calling again reconfigures the instance and discards up to two
+ *         bytes still queued for sending (one in UCAxTXBUF, one in the
+ *         shift register); call hal_uart_flush() first to keep them. On
+ *         any error, the hardware is left unchanged.
  *
  * @par Blocking
  *      No.
@@ -130,5 +132,41 @@ hal_status_t hal_uart_init(hal_uart_instance_t instance,
 hal_status_t hal_uart_write(hal_uart_instance_t instance,
                             const uint8_t *data, size_t length_bytes,
                             uint32_t timeout_loops, size_t *bytes_written);
+
+/**
+ * @brief  Waits until every byte already accepted has left the TX pin.
+ *
+ * Covers the bytes accepted by hal_uart_write() before this call. Bytes
+ * written while it runs (which the no-overlap rule below forbids) are not
+ * covered.
+ *
+ * @param[in]  instance       UART to flush. Must be less than
+ *                            HAL_UART_INSTANCE_COUNT.
+ * @param[in]  timeout_loops  Waiting budget for the whole call, in loops of
+ *                            at least HAL_UART_LOOP_CYCLES MCLK cycles. 0
+ *                            succeeds only if the UART is already idle.
+ *
+ * @pre    hal_uart_init() has returned HAL_STATUS_OK for this instance.
+ *         Interrupts must not be disabled around the call: a future
+ *         interrupt-driven version will need them to drain its buffer.
+ * @post   On HAL_STATUS_OK, the transmitter is idle and the stop bit of the
+ *         last accepted byte has been sent.
+ *
+ * @par Blocking
+ *      Yes. At most timeout_loops loops of about HAL_UART_LOOP_CYCLES + 20
+ *      MCLK cycles each. If incoming data keeps the UART busy, returns no
+ *      later than about one frame after the last byte started sending.
+ * @par ISR-safe
+ *      No. Not reentrant: calls to hal_uart_write() and hal_uart_flush()
+ *      for the same instance must not overlap.
+ *
+ * @retval HAL_STATUS_OK               Every accepted byte has been sent.
+ * @retval HAL_STATUS_INVALID_ARG      instance is out of range.
+ * @retval HAL_STATUS_NOT_INITIALISED  instance has not been initialised.
+ * @retval HAL_STATUS_TIMEOUT          The budget ran out before sending could
+ *                                     be confirmed. Nothing is discarded;
+ *                                     calling again is valid.
+ */
+hal_status_t hal_uart_flush(hal_uart_instance_t instance, uint32_t timeout_loops);
 
 #endif // HAL_UART_H

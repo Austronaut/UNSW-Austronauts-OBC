@@ -44,9 +44,11 @@ static const uint16_t base_addresses[HAL_UART_INSTANCE_COUNT] = {
     EUSCI_A3_BASE,
 };
 
-// Set only when hal_uart_init() succeeds. A failed re-init leaves the old
-// configuration running, so it leaves this set too.
-static bool initialised[HAL_UART_INSTANCE_COUNT];
+// Per instance: loops of at least HAL_UART_LOOP_CYCLES that cover one frame
+// plus one bit at the current settings. 0 means not initialised. Set only
+// when hal_uart_init() succeeds; a failed re-init leaves the old
+// configuration running, so it leaves this unchanged too.
+static uint16_t frame_loops[HAL_UART_INSTANCE_COUNT];
 
 static volatile uint16_t *reg(hal_uart_instance_t instance, uint16_t offset)
 {
@@ -94,6 +96,25 @@ static bool encode_frame_bits(const hal_uart_config_t *config,
     return true;
 }
 
+// Returns how many loops of at least HAL_UART_LOOP_CYCLES MCLK cycles cover
+// one frame plus one bit for config. After UCTXIFG sets, the last byte is in
+// the shift register and finishes within one frame; the extra bit covers
+// the wait for the next BITCLK before it starts (SLAU367P 30.3.8). This is
+// conservative: hw_test case 23 measured UCTXIFG setting at the end of the
+// start bit, so only frame - 1 bits actually remain. Rounds up, multiplying
+// before dividing so no fraction is lost.
+static uint16_t compute_frame_loops(const hal_uart_config_t *config)
+{
+    uint32_t bits = 1 + 8 + 1;                      // start, data, margin
+    bits += (config->parity == HAL_UART_PARITY_NONE) ? 0 : 1;
+    bits += (config->stop_bits == HAL_UART_STOP_BITS_2) ? 2 : 1;
+
+    uint32_t cycles_per_loop_times_baud = config->baud_rate_bps * HAL_UART_LOOP_CYCLES;
+    uint32_t cycles_times_baud = bits * HAL_CLOCK_MCLK_HZ;
+    return (uint16_t)((cycles_times_baud + cycles_per_loop_times_baud - 1) /
+                      cycles_per_loop_times_baud);
+}
+
 // Routes P2.0 to UCA0TXD and P2.1 to UCA0RXD: P2SEL1 = 1, P2SEL0 = 0
 // (SLASE54D Table 9-23). The eUSCI controls the pin direction.
 // TODO(stage 5): move to the board layer.
@@ -134,6 +155,8 @@ hal_status_t hal_uart_init(hal_uart_instance_t instance,
         return HAL_STATUS_UNSUPPORTED;
     }
 
+    uint16_t new_frame_loops = compute_frame_loops(config);
+
     // All checks passed; only now touch the hardware. Sequence from
     // SLAU367P 30.3.1: hold in reset, configure, mux pins, release.
 
@@ -154,7 +177,7 @@ hal_status_t hal_uart_init(hal_uart_instance_t instance,
     // Release from reset. The transmitter is idle with UCTXIFG = 1.
     *reg(instance, OFS_UCA0CTLW0) &= ~UCSWRST;
 
-    initialised[instance] = true;
+    frame_loops[instance] = new_frame_loops;
     return HAL_STATUS_OK;
 }
 
@@ -173,7 +196,7 @@ hal_status_t hal_uart_write(hal_uart_instance_t instance,
         HAL_DEBUG_TRAP();
         return HAL_STATUS_INVALID_ARG;
     }
-    if (!initialised[instance]) {
+    if (frame_loops[instance] == 0) {
         HAL_DEBUG_TRAP();
         return HAL_STATUS_NOT_INITIALISED;
     }
@@ -205,4 +228,53 @@ hal_status_t hal_uart_write(hal_uart_instance_t instance,
         *bytes_written = sent;
     }
     return status;
+}
+
+hal_status_t hal_uart_flush(hal_uart_instance_t instance, uint32_t timeout_loops)
+{
+    if ((unsigned int)instance >= HAL_UART_INSTANCE_COUNT) {
+        HAL_DEBUG_TRAP();
+        return HAL_STATUS_INVALID_ARG;
+    }
+    if (frame_loops[instance] == 0) {
+        HAL_DEBUG_TRAP();
+        return HAL_STATUS_NOT_INITIALISED;
+    }
+
+    // Only reads registers. UCTXCPTIFG is deliberately not used: SLAU367P
+    // Table 30-6 and erratum USCI42 (SLAZ681O) disagree on when it sets,
+    // and clearing it would mean writing UCAxIFG, which a future RX or TX
+    // interrupt handler also uses.
+    volatile uint16_t *ifg = reg(instance, OFS_UCA0IFG);
+    volatile uint16_t *statw = reg(instance, OFS_UCA0STATW);
+    uint32_t loops_left = timeout_loops;
+
+    // Phase 1: wait until UCAxTXBUF is empty. The last byte is then in the
+    // shift register, and every earlier byte has finished, since a byte
+    // only moves there once the previous one is done (SLAU367P 30.3.8).
+    while ((*ifg & UCTXIFG) == 0) {
+        if (loops_left == 0) {
+            return HAL_STATUS_TIMEOUT;
+        }
+        loops_left--;
+        __delay_cycles(HAL_UART_LOOP_CYCLES);
+    }
+
+    // Phase 2: wait until the eUSCI is idle (UCBUSY = 0, SLAU367P 30.4.5),
+    // or until one frame plus one bit has passed. SLAU367P does not say
+    // exactly when UCBUSY falls; hw_test cases 23 and 24 measured it on the
+    // TX pin at the end of the last stop bit (both stop bits with 2), and
+    // guard that. UCBUSY also covers receiving, so incoming data could hold
+    // it at 1 after the last byte has left; the frame time bounds that wait.
+    uint16_t frame_left = frame_loops[instance];
+    while ((*statw & UCBUSY) != 0 && frame_left > 0) {
+        if (loops_left == 0) {
+            return HAL_STATUS_TIMEOUT;
+        }
+        loops_left--;
+        frame_left--;
+        __delay_cycles(HAL_UART_LOOP_CYCLES);
+    }
+
+    return HAL_STATUS_OK;
 }
