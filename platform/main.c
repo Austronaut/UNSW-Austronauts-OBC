@@ -1,82 +1,46 @@
-/* --COPYRIGHT--,BSD_EX
- * Copyright (c) 2015, Texas Instruments Incorporated
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * *  Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * *  Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * *  Neither the name of Texas Instruments Incorporated nor the names of
- *    its contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *******************************************************************************
- * 
- *                       MSP430 CODE EXAMPLE DISCLAIMER
- *
- * MSP430 code examples are self-contained low-level programs that typically
- * demonstrate a single peripheral function or device feature in a highly
- * concise manner. For this the code may rely on the device's power-on default
- * register values and settings such as the clock configuration and care must
- * be taken when combining code from several examples to avoid potential side
- * effects. Also see www.ti.com/grace for a GUI- and www.ti.com/msp430ware
- * for an API functional library-approach to peripheral configuration.
- *
- * --/COPYRIGHT--*/
-//******************************************************************************
-//  MSP430FR5x9x Demo - Toggle P1.0 using software
-//
-//  Description: Toggle P1.0 using software.
-//  ACLK = n/a, MCLK = SMCLK = default DCO
-//
-//           MSP430FR5994
-//         ---------------
-//     /|\|               |
-//      | |               |
-//      --|RST            |
-//        |               |
-//        |           P1.0|-->LED
-//
-//   William Goh
-//   Texas Instruments Inc.
-//   October 2015
-//   Built with IAR Embedded Workbench V6.30 & Code Composer Studio V6.1
-//******************************************************************************
-#include <msp430.h>
+#include <driverlib.h>
+#include "hal_clock.h"
+#include "hal_spi.h"
+
+#define TEST_BYTE 0xAA
 
 int main(void)
 {
-    WDTCTL = WDTPW | WDTHOLD;               // Stop WDT
+    WDT_A_hold(WDT_A_BASE);        /* stop watchdog - must be first, or the
+                                     * chip resets itself before anything runs */
 
-    // Configure GPIO
-    P1OUT &= ~BIT0;                         // Clear P1.0 output latch for a defined power-on state
-    P1DIR |= BIT0;                          // Set P1.0 to output direction
+    HAL_Clock_Init();              /* SMCLK -> ~1 MHz DCO, must precede
+                                     * HAL_SPI_Init (assumes this frequency) */
 
-    PM5CTL0 &= ~LOCKLPM5;                   // Disable the GPIO power-on default high-impedance mode
-                                            // to activate previously configured port settings
-
-    while(1)
+    HAL_SPI_Init();                /* eUSCI_B1 SPI + CS/GDO0/GDO2 pins +
+                                     * LOCKLPM5 unlock */
+    GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN0 | GPIO_PIN1);
+    
+    while (1)
     {
-        P1OUT ^= BIT0;                      // Toggle LED
-        __delay_cycles(100000);
+        /* --- SPI / clock / CPOL / CPHA / CS test --- */
+        HAL_SPI_CS_Assert();            /* should pulse P4.4 low */
+
+        SPI_TransferByte(TEST_BYTE);    /* each call clocks 8 bits on P5.2,
+                                          * data on P5.0 (MOSI) */
+        SPI_TransferByte(TEST_BYTE);
+        SPI_TransferByte(TEST_BYTE);
+        SPI_TransferByte(TEST_BYTE);
+
+        HAL_SPI_CS_Deassert();          /* P4.4 back high */
+
+        /* --- GDO0 / GDO2 direction test --- */
+        if (GPIO_getInputPinValue(GDO0_PORT, GDO0_PIN))
+            GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN0);
+        else
+            GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN0);
+
+        if (GPIO_getInputPinValue(GDO2_PORT, GDO2_PIN))
+            GPIO_setOutputHighOnPin(GPIO_PORT_P1, GPIO_PIN1);
+        else
+            GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN1);
+
+        __delay_cycles(50000);   /* ~50ms pause - makes the CS pulse easy
+                                   * to find and trigger on with a scope */
     }
 }
