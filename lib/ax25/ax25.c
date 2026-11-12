@@ -42,7 +42,7 @@ encode_addr(uint8_t out[AX25_ADDR_LEN], const uint8_t *callsign, uint8_t ssid,
 		if (i < len) {
 			c = callsign[i];
 			if (!valid_callsign_char(c))
-				return AX25_ERR_NO_SPACE;
+				return AX25_ERR_CALL;
 		}
 		out[i] = (uint8_t)((uint8_t)c << 1);
 	}
@@ -77,7 +77,7 @@ ax25_create_hdr(ax25_hdr *hdr, const uint8_t *dst, uint8_t dst_ssid,
 	if (err != AX25_OK)
 		return err;
 
-	err = encode_addr(&hdr->contents[AX25_ADDR_LEN], dst, dst_ssid, 1, 0);
+	err = encode_addr(&hdr->contents[AX25_ADDR_LEN], src, src_ssid, 0, 1);
 	if (err != AX25_OK)
 		return err;
 
