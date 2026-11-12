@@ -1,3 +1,6 @@
+# Clang files
+.clangd
+
 # Object files
 *.o
 *.ko
