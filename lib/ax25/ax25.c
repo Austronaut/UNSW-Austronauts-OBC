@@ -1,10 +1,14 @@
 #include "ax25.h"
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 /*
  * HELPER FUNCTIONS
  */
-static uint8_t valid_callsign_char(char c) {
+static uint8_t
+valid_callsign_char(char c)
+{
 	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
 }
 
@@ -83,4 +87,50 @@ ax25_create_hdr(ax25_hdr *hdr, const uint8_t *dst, uint8_t dst_ssid,
 	hdr->contents[AX25_ADDR_LEN + AX25_ADDR_LEN + 1] = pid;
 
 	return AX25_OK;
+}
+
+/*
+ * Frame Check Sequence, ie the CRC. Returns the 2 CRC bytes based on the data
+ * of the frame.
+ */
+uint16_t
+ax25_fcs(const uint8_t *data, size_t len)
+{
+	uint16_t crc = 0xFFFF;
+
+	for (size_t i = 0; i < len; i++) {
+		crc ^= data[i];
+		for (int b = 0; b < 8; b++)
+			crc = (crc & 1) ? (uint16_t)((crc >> 1) ^ 0x8408)
+					: (uint16_t)(crc >> 1);
+	}
+	return (uint16_t)(crc ^ 0xFFFF);
+}
+
+int8_t
+ax25_encode(const ax25_hdr *hdr, const uint8_t *info, size_t info_len,
+    uint8_t *out, size_t out_cap)
+{
+	size_t total;
+	uint16_t fcs;
+
+	if (hdr == NULL || out == NULL || (info_len > 0 && info == NULL))
+		return AX25_ERR_ARG;
+
+	if (info_len > AX25_MAX_INFO)
+		return AX25_ERR_TOO_LONG;
+
+	total = AX25_OVERHEAD + info_len;
+	if (out_cap < total)
+		return AX25_ERR_NO_SPACE;
+
+	memcpy(out, hdr->contents, AX25_HDR_LEN);
+	if (info_len > 0)
+		memcpy(out + AX25_HDR_LEN, info, info_len);
+
+	fcs = ax25_fcs(out, AX25_HDR_LEN + info_len);
+	out[total - 2] = (uint8_t)(fcs & 0xFF);
+	out[total - 1] = (uint8_t)(fcs >> 8);
+
+	return (int8_t)total;
 }

@@ -8,16 +8,16 @@
  * AX.25 framing:
  * [dst addr 7][src addr 7][ctrl 0x03][pid 0xF0][info max=256][FCS 2]
  */
-#define AX25_HEADER_LEN 16
+#define AX25_HDR_LEN 16
 #define AX25_FCS_LEN	2
-#define AX25_OVERHEAD	(AX25_HEADER_LEN + AX25_FCS_LEN)
+#define AX25_OVERHEAD	(AX25_HDR_LEN + AX25_FCS_LEN)
 #define AX25_MAX_INFO	256
 #define AX25_MAX_FRAME	(AX25_OVERHEAD + AX25_MAX_INFO)
 #define AX25_ADDR_LEN	7
 
 /* Header structure for AX.25 framing */
 typedef struct {
-	uint8_t contents[AX25_HEADER_LEN];
+	uint8_t contents[AX25_HDR_LEN];
 } ax25_hdr;
 
 /* Error vals */
