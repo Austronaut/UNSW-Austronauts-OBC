@@ -1,6 +1,4 @@
 #include "ax25.h"
-#include <stddef.h>
-#include <stdint.h>
 #include <string.h>
 
 /*
@@ -107,6 +105,10 @@ ax25_fcs(const uint8_t *data, size_t len)
 	return (uint16_t)(crc ^ 0xFFFF);
 }
 
+/*
+ * Encodes the information into the frame. Adds header, and also adds the CRC
+ * bytes at the end.
+ */
 int8_t
 ax25_encode(const ax25_hdr *hdr, const uint8_t *info, size_t info_len,
     uint8_t *out, size_t out_cap)
@@ -124,10 +126,14 @@ ax25_encode(const ax25_hdr *hdr, const uint8_t *info, size_t info_len,
 	if (out_cap < total)
 		return AX25_ERR_NO_SPACE;
 
+	/* Add header */
 	memcpy(out, hdr->contents, AX25_HDR_LEN);
+
+	/* Add information */
 	if (info_len > 0)
 		memcpy(out + AX25_HDR_LEN, info, info_len);
 
+	/* Add CRC (FCS goes low byte first) */
 	fcs = ax25_fcs(out, AX25_HDR_LEN + info_len);
 	out[total - 2] = (uint8_t)(fcs & 0xFF);
 	out[total - 1] = (uint8_t)(fcs >> 8);
